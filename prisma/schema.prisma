@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User ids below are MarketX profile ids. Plain strings, no foreign key:
+// the people live in MarketX, Posta only remembers who did what.
+
+/// A partner shop or spot where parcels change hands.
+model HandoverPoint {
+  id           String @id @default(uuid())
+  postcode     String
+  name         String
+  city         String
+  lat          Float
+  lng          Float
+  contactPhone String
+}
+
+/// A journey someone is already making, e.g. John, Jos to Lagos on Friday.
+model Trip {
+  id           String     @id @default(uuid())
+  driverUserId String?
+  driverName   String
+  driverPhone  String
+  fromCity     String
+  toCity       String
+  departAt     DateTime
+  arriveBy     DateTime
+  capacity     Int
+  status       TripStatus @default(OPEN)
+  createdBy    String
+  createdAt    DateTime   @default(now())
+  legs         Leg[]
+}
+
+enum TripStatus {
+  OPEN
+  FULL
+  DONE
+}
+
+model Parcel {
+  id             String       @id @default(uuid())
+  /// Shown as #1001. Readable over the phone.
+  number         Int          @unique @default(autoincrement())
+  /// Secret in the recipient's tracking link. The page shows their delivery code, so it must not be guessable.
+  trackToken     String       @unique @default(uuid())
+  /// What's inside, so the carrier knows what they're collecting.
+  description    String       @default("")
+  senderName     String
+  senderPhone    String
+  recipientName  String
+  recipientPhone String
+  pickupPostcode String
+  dropPostcode   String
+  /// Map pin for the drop-off, used to pick the nearest handover point
+  dropLat        Float?
+  dropLng        Float?
+  fromCity       String
+  toCity         String
+  weightKg       Float
+  valueKobo      Int
+  status         ParcelStatus @default(NEW)
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  legs           Leg[]
+  events         Event[]
+}
+
+enum ParcelStatus {
+  NEW
+  MATCHED
+  IN_TRANSIT
+  AT_HUB
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+/// One stretch of a parcel's journey, carried by one person.
+/// Leg 1 = the driver's trip, leg 2 = the last-mile courier.
+model Leg {
+  id               String    @id @default(uuid())
+  parcelId         String
+  parcel           Parcel    @relation(fields: [parcelId], references: [id])
+  seq              Int
+  kind             LegKind
+  tripId           String?
+  trip             Trip?     @relation(fields: [tripId], references: [id])
+  carrierName      String
+  carrierPhone     String
+  fromPostcode     String
+  toPostcode       String
+  windowStart      DateTime
+  windowEnd        DateTime
+  /// Held by the person handing the parcel TO the carrier.
+  collectCode      String
+  /// Held by the person receiving the parcel FROM the carrier.
+  handoverCode     String
+  /// Secret in the carrier's link, so they need no account.
+  linkToken        String    @unique
+  /// Wrong codes typed on this leg. Locks at 5 so a 6-digit code can't be guessed.
+  failedAttempts   Int       @default(0)
+  status           LegStatus @default(ASSIGNED)
+  collectedAt      DateTime?
+  handedOverAt     DateTime?
+  handoverPostcode String?
+  photoUrl         String?
+
+  @@unique([parcelId, seq])
+}
+
+enum LegKind {
+  LINEHAUL
+  LASTMILE
+}
+
+enum LegStatus {
+  ASSIGNED
+  COLLECTED
+  HANDED_OVER
+}
+
+/// Append-only history: parcel.matched, leg.collected, handover.completed, lastmile.created, parcel.delivered
+model Event {
+  id       String   @id @default(uuid())
+  parcelId String
+  parcel   Parcel   @relation(fields: [parcelId], references: [id])
+  type     String
+  data     Json     @default("{}")
+  at       DateTime @default(now())
+
+  @@index([parcelId, at])
+}

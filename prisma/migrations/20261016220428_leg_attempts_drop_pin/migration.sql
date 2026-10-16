@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Leg" ADD COLUMN     "failedAttempts" INTEGER NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "Parcel" ADD COLUMN     "dropLat" DOUBLE PRECISION,
+ADD COLUMN     "dropLng" DOUBLE PRECISION;

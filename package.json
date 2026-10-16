@@ -1,0 +1,32 @@
+{
+  "name": "posta",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare && prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "demo": "tsx prisma/demo.ts",
+    "test": "node --test \"server/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@iconify-json/solar": "^1.2.13",
+    "@nuxt/icon": "^2.5.1",
+    "@prisma/adapter-pg": "^7.4.0",
+    "@prisma/client": "^7.4.0",
+    "nuxt": "^4.3.1",
+    "pg": "^8.16.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "dotenv": "^17.2.0",
+    "prisma": "^7.4.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.13"
+  }
+}
