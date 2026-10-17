@@ -7,7 +7,7 @@
  */
 import 'dotenv/config'
 import { prisma } from '../server/utils/db'
-import { runMatching } from '../server/services/match.service'
+import { matchService } from '../layers/delivery/server/services/match.service'
 
 const owner = process.argv[2] || 'demo'
 const base = process.env.POSTA_URL || 'http://localhost:3100'
@@ -45,7 +45,7 @@ const parcel = await prisma.parcel.create({
   },
 })
 await prisma.event.create({ data: { parcelId: parcel.id, type: 'parcel.created' } })
-await runMatching()
+await matchService.run()
 
 const legs = await prisma.leg.findMany({ where: { parcelId: parcel.id } })
 const leg1 = legs.find((l) => l.seq === 1)

@@ -5,10 +5,13 @@ const notFound = computed(() => props.error.statusCode === 404)
 </script>
 
 <template>
-  <main class="public" style="padding-top: 72px">
-    <p class="wordmark">posta<span>.</span></p>
-    <h1 style="margin-top: 32px">{{ notFound ? 'Not found' : 'Something went wrong' }}</h1>
-    <p class="soft" style="margin-top: 8px">{{ notFound ? error.statusMessage || 'This page does not exist.' : 'Try again in a moment.' }}</p>
-    <button class="btn ink" style="margin-top: 24px" @click="clearError({ redirect: '/' })">Go to Posta</button>
+  <main class="wrap">
+    <header class="top"><span class="wordmark">posta<span>.</span></span></header>
+    <div class="page" style="text-align: center; padding-top: 48px">
+      <div class="hero-icon" style="margin-inline: auto"><AppIcon :name="notFound ? 'pin' : 'alert'" /></div>
+      <h1>{{ notFound ? 'Not found' : 'Something went wrong' }}</h1>
+      <p class="soft" style="margin-top: 8px">{{ notFound ? error.statusMessage || 'This page does not exist.' : 'Try again in a moment.' }}</p>
+      <button class="btn ink" style="margin-top: 28px" @click="clearError({ redirect: '/' })">Go home</button>
+    </div>
   </main>
 </template>

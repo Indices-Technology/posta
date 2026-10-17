@@ -10,14 +10,106 @@ datasource db {
 // the people live in MarketX, Posta only remembers who did what.
 
 /// A partner shop or spot where parcels change hands.
+/// A fulfilment centre: the partner shop where drivers hand parcels to couriers.
+/// Only APPROVED ones receive parcels.
 model HandoverPoint {
-  id           String @id @default(uuid())
+  id           String        @id @default(uuid())
   postcode     String
   name         String
   city         String
   lat          Float
   lng          Float
   contactPhone String
+  address      String        @default("")
+  openingHours String        @default("")
+  /// The MarketX account that registered it (null for ones staff added).
+  ownerUserId  String?
+  status       PartnerStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime      @default(now())
+
+  @@index([status, city])
+}
+
+enum PartnerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+/// Someone who carries parcels the last stretch: a person, or a courier company.
+model Courier {
+  id            String        @id @default(uuid())
+  kind          CourierKind
+  /// The MarketX account that applied and manages it.
+  userId        String
+  /// Person's name, or the company's name.
+  name          String
+  phone         String
+  city          String
+  /// BIKE | CAR | VAN, for people.
+  vehicle       String?
+  /// Companies: new jobs are POSTed here, signed with webhookSecret (HMAC-SHA256).
+  webhookUrl    String?
+  webhookSecret String?
+  status        PartnerStatus @default(PENDING)
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  legs          Leg[]
+
+  @@unique([userId, kind])
+  @@index([city, status])
+}
+
+enum CourierKind {
+  INDIVIDUAL
+  COMPANY
+}
+
+/// One message to one person or system. Written first, then sent and retried: nothing is lost.
+model Notification {
+  id            String              @id @default(uuid())
+  channel       NotificationChannel
+  /// Key in layers/notifications/server/utils/templates.ts
+  template      String
+  params        Json                @default("{}")
+  /// IN_APP: who sees it. Null with forStaff = every staff member.
+  toUserId      String?
+  forStaff      Boolean             @default(false)
+  /// WHATSAPP: who receives it.
+  toPhone       String?
+  /// WEBHOOK: the courier company whose system receives it.
+  courierId     String?
+  parcelId      String?
+  status        NotificationStatus  @default(PENDING)
+  attempts      Int                 @default(0)
+  nextAttemptAt DateTime            @default(now())
+  lastError     String?
+  sentAt        DateTime?
+  readAt        DateTime?
+  createdAt     DateTime            @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@index([toUserId, createdAt])
+  @@index([forStaff, createdAt])
+}
+
+enum NotificationChannel {
+  IN_APP
+  WHATSAPP
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  /// Gave up after the last retry.
+  FAILED
+  /// Channel not set up (e.g. no WhatsApp credentials yet): kept, not sent.
+  SKIPPED
 }
 
 /// A journey someone is already making, e.g. John, Jos to Lagos on Friday.
@@ -104,6 +196,9 @@ model Leg {
   linkToken        String    @unique
   /// Wrong codes typed on this leg. Locks at 5 so a 6-digit code can't be guessed.
   failedAttempts   Int       @default(0)
+  /// Last-mile legs: the courier (person or company) doing it.
+  courierId        String?
+  courier          Courier?  @relation(fields: [courierId], references: [id])
   status           LegStatus @default(ASSIGNED)
   collectedAt      DateTime?
   handedOverAt     DateTime?

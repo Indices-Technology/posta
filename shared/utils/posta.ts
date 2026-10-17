@@ -61,3 +61,5 @@ export function eventText(type: string, data: Record<string, any> = {}, forPubli
       return null
   }
 }
+
+export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name
