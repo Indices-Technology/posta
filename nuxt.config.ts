@@ -18,6 +18,19 @@ export default defineNuxtConfig({
   // Icons ship with the app (no calls to the Iconify API). Same Solar set as MarketX.
   icon: { serverBundle: { collections: ['solar'] }, clientBundle: { scan: true } },
 
+  // Baseline browser protections on every response. Geolocation stays allowed for our own pages
+  // (centre registration uses it). A full Content-Security-Policy is still to do (docs/HOSTING.md).
+  routeRules: {
+    '/**': {
+      headers: {
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'DENY',
+        'referrer-policy': 'strict-origin-when-cross-origin',
+        'permissions-policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
+      },
+    },
+  },
+
   runtimeConfig: {
     // Posta has no accounts of its own: people sign in with their MarketX account.
     marketxApiUrl: 'https://marketx.africa', // NUXT_MARKETX_API_URL
