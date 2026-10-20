@@ -16,7 +16,11 @@ const f = reactive({
   fromCity: '',
   pickupPostcode: '',
   toCity: '',
+  pickupLat: null as number | null,
+  pickupLng: null as number | null,
   dropPostcode: '',
+  dropLat: null as number | null,
+  dropLng: null as number | null,
   recipientName: '',
   recipientPhone: '',
   description: '',
@@ -26,6 +30,7 @@ const f = reactive({
   senderPhone: data.value?.me.phone ?? '',
 })
 const otherFrom = ref(false)
+
 
 const phoneOk = (p: string) => /^\+?\d[\d\s]{9,15}$/.test(p.trim())
 const postcodeOk = (p: string) => !!normalizePostcode(p)
@@ -75,16 +80,14 @@ const naira = computed(() => (f.valueNaira === '' ? '' : formatNaira(Number(f.va
         <button type="button" class="chip" :class="{ on: otherFrom }" @click="(otherFrom = true), (f.fromCity = '')">Other</button>
       </div>
       <input v-if="otherFrom" v-model="f.fromCity" class="big-input" placeholder="City" autofocus />
-      <p class="field-label">Pickup postcode</p>
-      <PostcodeInput v-model="f.pickupPostcode" big />
+      <PostcodeMapPicker v-model:postcode="f.pickupPostcode" v-model:lat="f.pickupLat" v-model:lng="f.pickupLng" :near="f.fromCity" />
     </template>
 
     <template v-else-if="i === 1">
       <div class="chips">
         <button v-for="c in cities" :key="c" type="button" class="chip" :class="{ on: f.toCity === c }" @click="f.toCity = c">{{ c }}</button>
       </div>
-      <p class="field-label">Delivery postcode</p>
-      <PostcodeInput v-model="f.dropPostcode" big />
+      <PostcodeMapPicker v-model:postcode="f.dropPostcode" v-model:lat="f.dropLat" v-model:lng="f.dropLng" :near="f.toCity" />
     </template>
 
     <template v-else-if="i === 2">

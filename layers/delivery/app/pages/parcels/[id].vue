@@ -20,6 +20,7 @@ const firstName = (n: string) => n.split(' ')[0]
     <h1 style="margin-top: 8px" :class="{ 'tone-ok': p.status === 'DELIVERED' }">{{ PARCEL_STATUS[p.status as ParcelStatusName].label }}</h1>
     <p class="soft" style="margin-top: 6px">{{ p.recipientName }}, {{ p.toCity }} · <span class="figure">{{ formatRef(p.number) }}</span></p>
 
+    <JourneyMap v-if="data.journey" :journey="data.journey" />
     <StageBar :status="p.status" />
 
     <!-- The one thing to do now -->

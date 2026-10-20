@@ -6,10 +6,15 @@ export const createParcelSchema = z.object({
   senderPhone: phoneField('your'),
   pickupPostcode: postcodeField('pickup'),
   fromCity: cityField('pickup'),
+  pickupLat: z.coerce.number().min(4).max(14).optional().nullable(),
+  pickupLng: z.coerce.number().min(2.5).max(15).optional().nullable(),
   recipientName: nameField("recipient's name"),
   recipientPhone: phoneField("the recipient's"),
   dropPostcode: postcodeField('delivery'),
   toCity: cityField('delivery'),
+  // The delivery pin from the map: matching hands the parcel to the nearest fulfilment centre.
+  dropLat: z.coerce.number().min(4).max(14).optional().nullable(),
+  dropLng: z.coerce.number().min(2.5).max(15).optional().nullable(),
   description: z.string({ required_error: "Say what's in the parcel" }).trim().min(2, "Say what's in the parcel").max(140),
   weightKg: z.coerce
     .number({ invalid_type_error: 'Choose a size' })

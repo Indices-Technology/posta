@@ -148,6 +148,9 @@ model Parcel {
   recipientName  String
   recipientPhone String
   pickupPostcode String
+  /// Map pin for the pickup (from the postcode map). Shown to the sender; public pages show only the city.
+  pickupLat      Float?
+  pickupLng      Float?
   dropPostcode   String
   /// Map pin for the drop-off, used to pick the nearest handover point
   dropLat        Float?

@@ -5,6 +5,7 @@ import { parcelRepository } from '../repositories/parcel.repository'
 import { eventRepository } from '../repositories/event.repository'
 import { matchService } from './match.service'
 import type { CreateParcelInput } from '../schemas/parcel.schema'
+import { buildJourney } from '../utils/journey'
 
 export const parcelService = {
   async create(user: PostaUser, { valueNaira, ...input }: CreateParcelInput) {
@@ -57,8 +58,10 @@ export const parcelService = {
     ].filter((c): c is { holder: string; use: string; code: string } => !!c)
 
     const { legs, events, ...rest } = parcel
+    const onRoute = l1 ? hubs.find((h) => h.postcode === l1.toPostcode) : undefined
     return {
       parcel: rest,
+      journey: buildJourney({ ...rest, hub: onRoute ?? null }, 'owner'),
       legs: legs.map((l) => ({
         id: l.id,
         seq: l.seq,
@@ -91,12 +94,15 @@ export const parcelService = {
     if (!parcel) throw notFound('Tracking link')
 
     const lastMile = parcel.legs.find((l) => l.kind === 'LASTMILE')
+    const leg1 = parcel.legs.find((l) => l.kind === 'LINEHAUL')
+    const hub = leg1 ? await hubRepository.findByPostcode(leg1.toPostcode) : null
     const pending = lastMile && lastMile.status !== 'HANDED_OVER'
     return {
       number: parcel.number,
       status: parcel.status,
       fromCity: parcel.fromCity,
       toCity: parcel.toCity,
+      journey: buildJourney({ ...parcel, hub }, 'public'),
       recipientFirstName: parcel.recipientName.split(' ')[0],
       deliveryCode: pending ? lastMile.handoverCode : null,
       courier: pending ? { name: lastMile.carrierName, phone: lastMile.carrierPhone } : null,

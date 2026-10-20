@@ -19,6 +19,7 @@ const { data: t } = await useApiData(`track:${token}`, () => delivery.getTrackin
       <p class="soft">From {{ t.fromCity }}</p>
       <h1 style="margin-top: 4px" :class="{ 'tone-ok': t.status === 'DELIVERED' }">{{ PARCEL_STATUS[t.status as ParcelStatusName].label }}</h1>
 
+      <JourneyMap v-if="t.journey" :journey="t.journey" />
       <StageBar :status="t.status" />
 
       <section v-if="t.deliveryCode" class="panel stack">

@@ -14,3 +14,17 @@ export function normalizePostcode(input: string): string | null {
 }
 
 export const postcodeState = (canonical: string) => canonical.slice(0, 2)
+
+/** Where the map opens for a city, [lng, lat]. Unknown cities open on Nigeria as a whole. */
+export const CITY_CENTRES: Record<string, [number, number]> = {
+  lagos: [3.3792, 6.5244],
+  abuja: [7.4951, 9.0579],
+  jos: [8.8921, 9.9285],
+  kano: [8.5167, 12.0022],
+  ibadan: [3.947, 7.3775],
+  'port harcourt': [7.0134, 4.8156],
+  kaduna: [7.4384, 10.5222],
+  enugu: [7.4951, 6.4584],
+  benin: [5.6037, 6.335],
+}
+export const cityCentre = (city?: string | null) => (city ? CITY_CENTRES[city.trim().toLowerCase()] : undefined)

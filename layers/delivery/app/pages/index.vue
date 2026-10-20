@@ -11,9 +11,9 @@ const { data } = await useApiData('home', () => delivery.loadHome())
         <AppIcon name="send" />
         <b>Send a parcel</b>
       </NuxtLink>
-      <NuxtLink to="/travel" class="tile">
-        <AppIcon name="travel" />
-        <b>I'm travelling</b>
+      <NuxtLink to="/carry" class="tile">
+        <AppIcon name="bike" />
+        <b>I'm a courier</b>
       </NuxtLink>
     </div>
 
@@ -28,7 +28,7 @@ const { data } = await useApiData('home', () => delivery.loadHome())
                 ? `${data.courier.openJobs} open ${data.courier.openJobs === 1 ? 'job' : 'jobs'}`
                 : data.courier
                   ? 'Application under review'
-                  : 'Deliver, or run a fulfilment centre'
+                  : 'Courier companies and fulfilment centres'
             }}</span>
           </span>
           <AppIcon name="chevron" />
