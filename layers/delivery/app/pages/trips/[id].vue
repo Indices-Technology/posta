@@ -5,7 +5,7 @@ const id = useRoute().params.id as string
 const delivery = useDelivery()
 const { data } = await useApiData(`trip:${id}`, () => delivery.getTrip(id))
 const t = computed(() => data.value!.trip)
-useHead({ title: `${t.value.fromCity} → ${t.value.toCity} · Posta` })
+useHead({ title: `${t.value.fromCity} → ${t.value.toCity}` })
 
 const LEG: Record<string, { label: string; icon: IconName; ok?: boolean }> = {
   ASSIGNED: { label: 'To collect', icon: 'parcel' },
@@ -16,7 +16,7 @@ const LEG: Record<string, { label: string; icon: IconName; ok?: boolean }> = {
 
 <template>
   <div v-if="data">
-    <NuxtLink to="/" class="iconbtn" aria-label="Home" style="margin-left: -12px"><AppIcon name="back" /></NuxtLink>
+    <BackButton style="margin-left: -12px" />
     <h1 style="margin-top: 8px">{{ t.fromCity }} → {{ t.toCity }}</h1>
     <p class="soft" style="margin-top: 6px">{{ formatDateTime(t.departAt) }} · {{ data.loads.length }} of {{ t.capacity }} parcels</p>
 

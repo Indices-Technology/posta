@@ -1,0 +1,6 @@
+User-agent: *
+# Personal links (jobs, tracking, handovers) and the API are never indexed.
+Disallow: /l/
+Disallow: /t/
+Disallow: /h/
+Disallow: /api/

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { IconName } from '~~/layers/core/app/components/AppIcon.vue'
-useHead({ title: 'Messages · Posta' })
+useHead({ title: 'Messages' })
 const { openInbox } = useNotifications()
 const { data } = await useApiData('inbox', () => openInbox())
 const NuxtLink = resolveComponent('NuxtLink')

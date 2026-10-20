@@ -1,23 +1,25 @@
 import type { PostaUser } from '~~/layers/core/server/types/user'
 import { notFound } from '~~/layers/core/server/types/errors'
-import { hubRepository } from '~~/layers/hubs/server/repositories/hub.repository'
 import { parcelRepository } from '../repositories/parcel.repository'
-import { eventRepository } from '../repositories/event.repository'
-import { matchService } from './match.service'
-import type { CreateParcelInput } from '../schemas/parcel.schema'
+import { handoverRepository, type HandoverFull } from '../repositories/handover.repository'
+import { bookingService } from './booking.service'
+import { sideOf } from './handover.service'
 import { buildJourney } from '../utils/journey'
+import type { CreateParcelInput } from '../schemas/parcel.schema'
+
+/** One line of the chain for the sender: who hands to whom, and whether it has happened. */
+const chainRow = (h: HandoverFull) => ({
+  seq: h.seq,
+  from: { party: h.fromParty, name: sideOf(h, 'from').name },
+  to: { party: h.toParty, name: sideOf(h, 'to').name },
+  status: h.status,
+  doneAt: h.doneAt,
+})
+
+const hubPoint = (h?: { name: string; lat: number; lng: number } | null) => (h ? { name: h.name, lat: h.lat, lng: h.lng } : null)
 
 export const parcelService = {
-  async create(user: PostaUser, { valueNaira, ...input }: CreateParcelInput) {
-    await assertPostcodesExist({ pickupPostcode: input.pickupPostcode, dropPostcode: input.dropPostcode })
-
-    const parcel = await parcelRepository.create({ ...input, valueKobo: valueNaira * 100, createdBy: user.id })
-    await eventRepository.record(parcel.id, 'parcel.created')
-
-    // Matching failing must not lose the parcel: it stays waiting and the next trip or parcel retries.
-    await matchService.run().catch((error) => logger.logError('[match] after parcel create', error, { parcelId: parcel.id }))
-    return { id: parcel.id }
-  },
+  create: (user: PostaUser, input: CreateParcelInput) => bookingService.create(user, input),
 
   /**
    * My parcels in plain words, newest first: what Axioms (and so Dasah) reads.
@@ -30,7 +32,7 @@ export const parcelService = {
       number: p.number,
       ref: formatRef(p.number),
       status: p.status,
-      statusText: PARCEL_STATUS[p.status].label,
+      statusText: PARCEL_STATUS[p.status as ParcelStatusName]?.label ?? p.status,
       from: p.fromCity,
       to: p.toCity,
       recipient: p.recipientName,
@@ -38,74 +40,56 @@ export const parcelService = {
     }))
   },
 
-  /** The parcel page. Who sees which code is decided here, not on the page. */
+  /** The sender's parcel page: the whole chain, and their QR when it's their turn to hand it over. */
   async getForUser(user: PostaUser, id: string) {
     const parcel = await parcelRepository.findWithJourney(id, ownerScope(user))
     if (!parcel) throw notFound('Parcel')
+    const handovers = await handoverRepository.listForParcel(parcel.id)
 
-    const hubs = await hubRepository.findByPostcodes(parcel.legs.flatMap((l) => [l.fromPostcode, l.toPostcode]))
-    const placeName = (pc: string) => hubs.find((h) => h.postcode === pc)?.name ?? null
-
-    // Senders see their own pickup code and the recipient's. Hub codes are staff-only, so a
-    // sender and a driver can't fake a handover between them.
-    const ops = isOps(user)
-    const [l1, l2] = parcel.legs
-    const codes = [
-      l1 && { holder: 'Sender', use: 'Gives it to the driver at pickup', code: l1.collectCode },
-      l1 && ops && { holder: 'Handover point', use: 'Gives it to the driver on arrival', code: l1.handoverCode },
-      l2 && ops && { holder: 'Handover point', use: 'Gives it to the courier', code: l2.collectCode },
-      l2 && { holder: 'Recipient', use: 'Gives it to the courier on delivery', code: l2.handoverCode },
-    ].filter((c): c is { holder: string; use: string; code: string } => !!c)
+    // The sender shows their QR to whoever collects it (a courier or the centre they drop at).
+    const mine = handovers.find((h) => h.fromParty === 'SENDER' && h.status === 'READY')
+    const yourTurn = mine ? { token: mine.token, code: mine.code, to: { party: mine.toParty, name: sideOf(mine, 'to').name }, place: mine.toHub ? { name: mine.toHub.name, address: mine.toHub.address, hours: mine.toHub.openingHours, postcode: mine.toHub.postcode } : null } : null
+    const waitingForCourier = handovers.some((h) => h.fromParty === 'SENDER' && h.toParty === 'COURIER' && h.status === 'WAITING')
 
     const { legs, events, ...rest } = parcel
-    const onRoute = l1 ? hubs.find((h) => h.postcode === l1.toPostcode) : undefined
     return {
       parcel: rest,
-      journey: buildJourney({ ...rest, hub: onRoute ?? null }, 'owner'),
-      legs: legs.map((l) => ({
-        id: l.id,
-        seq: l.seq,
-        kind: l.kind,
-        status: l.status,
-        carrierName: l.carrierName,
-        carrierPhone: l.carrierPhone,
-        fromPostcode: l.fromPostcode,
-        fromPlace: placeName(l.fromPostcode),
-        toPostcode: l.toPostcode,
-        toPlace: placeName(l.toPostcode),
-        windowStart: l.windowStart,
-        windowEnd: l.windowEnd,
-        collectedAt: l.collectedAt,
-        handedOverAt: l.handedOverAt,
-        // The job link plus the sender's own code would let a sender mark "collected" without
-        // the driver. Drivers get their links from their trip; staff see all.
-        linkToken: ops ? l.linkToken : null,
-        locked: l.failedAttempts >= 5,
-        trip: l.trip,
-      })),
-      codes,
+      journey: buildJourney({ ...rest, origin: hubPoint(parcel.originHub), hub: hubPoint(parcel.destHub) }, 'owner'),
+      yourTurn,
+      waitingForCourier,
+      chain: handovers.map(chainRow),
+      // Staff see each carrier's job link; senders don't (a link plus a QR could fake a step).
+      legs: isOps(user)
+        ? legs.map((l) => ({ id: l.id, kind: l.kind, carrierName: l.carrierName, carrierPhone: l.carrierPhone, status: l.status, linkToken: l.linkToken }))
+        : [],
       events: events.map((e) => ({ id: e.id, type: e.type, data: e.data as Record<string, unknown>, at: e.at })),
     }
   },
 
-  /** The recipient's public tracking page. Shows their delivery code only while the courier has the parcel. */
+  /**
+   * The recipient's public tracking page. Their QR appears only when it's their turn: the courier is
+   * at the door, or the parcel is ready at the centre they collect from.
+   */
   async getTracking(trackToken: string) {
     const parcel = await parcelRepository.findByTrackToken(trackToken)
     if (!parcel) throw notFound('Tracking link')
+    const handovers = await handoverRepository.listForParcel(parcel.id)
+    const last = handovers.find((h) => h.toParty === 'RECIPIENT')
+    const yourTurn = last && last.status === 'READY'
+    const giver = last ? sideOf(last, 'from') : null
 
-    const lastMile = parcel.legs.find((l) => l.kind === 'LASTMILE')
-    const leg1 = parcel.legs.find((l) => l.kind === 'LINEHAUL')
-    const hub = leg1 ? await hubRepository.findByPostcode(leg1.toPostcode) : null
-    const pending = lastMile && lastMile.status !== 'HANDED_OVER'
     return {
       number: parcel.number,
       status: parcel.status,
       fromCity: parcel.fromCity,
       toCity: parcel.toCity,
-      journey: buildJourney({ ...parcel, hub }, 'public'),
+      lastMile: parcel.lastMile,
+      journey: buildJourney({ ...parcel, origin: hubPoint(parcel.originHub), hub: hubPoint(parcel.destHub) }, 'public'),
       recipientFirstName: parcel.recipientName.split(' ')[0],
-      deliveryCode: pending ? lastMile.handoverCode : null,
-      courier: pending ? { name: lastMile.carrierName, phone: lastMile.carrierPhone } : null,
+      yourQr: yourTurn ? { token: last.token, code: last.code } : null,
+      // Collecting: where and when. Door delivery: who is bringing it.
+      collectAt: parcel.lastMile === 'COLLECT' && parcel.destHub ? { name: parcel.destHub.name, address: parcel.destHub.address, hours: parcel.destHub.openingHours, postcode: parcel.destHub.postcode } : null,
+      courier: parcel.lastMile === 'DOOR' && giver?.party === 'COURIER' && giver.leg?.carrierName ? { name: giver.leg.carrierName, phone: giver.leg.carrierPhone } : null,
       // Public wording hides who carried it.
       events: parcel.events
         .map((e) => ({ id: e.id, at: e.at, text: eventText(e.type, e.data as Record<string, any>, true) }))

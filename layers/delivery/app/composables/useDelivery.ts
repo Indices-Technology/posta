@@ -34,5 +34,7 @@ export function useDelivery() {
     getParcel: (id: string) => api.getParcel(id),
     getTrip: (id: string) => api.getTrip(id),
     getTracking: (token: string) => api.getTracking(token),
+    centresNear: (lat: number, lng: number) => api.centresNear(lat, lng),
+    couriersNear: (lat: number, lng: number) => api.couriersNear(lat, lng),
   }
 }

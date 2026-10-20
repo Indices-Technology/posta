@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Staff only (the API refuses everyone else): applications, what's stuck, every parcel.
 definePageMeta({ wide: true })
-useHead({ title: 'Staff · Posta' })
+useHead({ title: 'Staff' })
 const admin = useAdmin()
 const { data, refresh } = await useApiData('admin:overview', () => admin.overview())
 const { busy, error, run } = useSubmit()

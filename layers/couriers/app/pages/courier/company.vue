@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Register a courier company. Optional: their system receives jobs as signed webhooks.
 definePageMeta({ layout: false })
-useHead({ title: 'Courier company · Posta' })
+useHead({ title: 'Courier company' })
 
 const delivery = useDelivery()
 const courier = useCourier()
@@ -34,7 +34,8 @@ async function next() {
     if (at >= 0) i.value = at
   }
 }
-const back = () => (i.value ? i.value-- : navigateTo('/join'))
+const goBack = useBack()
+const back = () => (i.value ? i.value-- : goBack('/join'))
 </script>
 
 <template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-useHead({ title: 'Posta' })
 const delivery = useDelivery()
 const { data } = await useApiData('home', () => delivery.loadHome())
 </script>
@@ -17,7 +16,17 @@ const { data } = await useApiData('home', () => delivery.loadHome())
       </NuxtLink>
     </div>
 
-    <ul class="list" style="margin: -16px 0 24px">
+    <ul v-if="data.centres" class="list" style="margin: -16px 0 24px">
+      <li>
+        <NuxtLink to="/centre" class="item">
+          <span class="item-icon"><AppIcon name="hubs" /></span>
+          <span><b>My centre</b><span class="sub">Scan parcels in and out</span></span>
+          <AppIcon name="chevron" />
+        </NuxtLink>
+      </li>
+    </ul>
+
+    <ul class="list" :style="{ margin: data.centres ? '0 0 24px' : '-16px 0 24px' }">
       <li>
         <NuxtLink :to="data.courier?.approved ? '/courier' : '/join'" class="item">
           <span class="item-icon"><AppIcon :name="data.courier?.approved ? 'bike' : 'work'" /></span>

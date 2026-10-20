@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ public: true, layout: false })
-useHead({ title: 'Sign in · Posta' })
+useHead({ title: 'Sign in' })
 
 const route = useRoute()
 const { login } = useAuth()

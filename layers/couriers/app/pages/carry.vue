@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // "I'm a courier": two ways to carry parcels with Posta, as two big choices.
-useHead({ title: "I'm a courier · Posta" })
+useHead({ title: "I'm a courier" })
 const delivery = useDelivery()
 const { data } = await useApiData('home', () => delivery.loadHome())
 const approved = computed(() => !!data.value?.courier?.approved)
@@ -8,7 +8,7 @@ const approved = computed(() => !!data.value?.courier?.approved)
 
 <template>
   <div v-if="data">
-    <NuxtLink to="/" class="iconbtn" aria-label="Home" style="margin-left: -12px"><AppIcon name="back" /></NuxtLink>
+    <BackButton style="margin-left: -12px" />
     <h1 style="margin: 8px 0 20px">How do you carry?</h1>
 
     <div class="stack">

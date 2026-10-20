@@ -29,10 +29,11 @@ already safe with several instances (each send is claimed in the database).
 |---|---|
 | `DATABASE_URL` | the new, same-region database |
 | `NUXT_MARKETX_API_URL` | `https://marketx.africa` |
-| `NUXT_PUBLIC_SITE_URL` | `https://posta.indicestech.com` (used in every WhatsApp and webhook link) |
+| `NUXT_PUBLIC_SITE_URL` | `https://posta.indicestech.com` (used in every WhatsApp and webhook link, the canonical tag and link previews) |
 | `NUXT_POSTCODE_API_KEY` | a **live** postcode.gov.ng key (test keys know only 5 FCT sandbox buildings) |
 | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN` | MarketX's WABA values, once the 3 Posta templates are approved (`INTEGRATIONS.md`) |
 | `NODE_ENV` | `production` (makes cookies `secure`) |
+| `DATABASE_POOL_MAX` | database connections per running copy. Default 3. On Vercel keep it at 1–3 and use Supabase's **transaction pooler** (port 6543): every serverless copy opens its own pool, and the session pooler allows only 15 clients in total |
 
 Do not copy `VERCEL*` or a development `NODE_ENV` across hosts (MarketX learned this in its cutover).
 

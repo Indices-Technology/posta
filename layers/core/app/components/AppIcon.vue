@@ -39,6 +39,12 @@ const ICONS = {
   refresh: 'solar:refresh-linear',
   work: 'solar:hand-shake-linear',
   link: 'solar:link-linear',
+  qr: 'solar:qr-code-linear',
+  scan: 'solar:scanner-linear',
+  search: 'solar:magnifier-linear',
+  incoming: 'solar:inbox-in-linear',
+  outgoing: 'solar:inbox-out-linear',
+  timer: 'solar:hourglass-linear',
 } as const
 
 export type IconName = keyof typeof ICONS

@@ -18,7 +18,7 @@ const caption = computed(() => {
   const j = props.journey
   const here = j.stops[j.at]!.label
   if (j.moving) return j.between
-  if (j.at === last.value) return `Delivered in ${here}`
+  if (j.delivered) return `Delivered in ${here}`
   if (j.at === 0) return `In ${here}, waiting for a traveller`
   return `At ${here}`
 })
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
   <figure class="journey-map">
     <div ref="el" class="canvas" role="img" :aria-label="`Map of the parcel's route. ${caption}`" />
     <figcaption class="row">
-      <span class="status" :class="journey.moving ? 'tone-ink' : journey.at === journey.stops.length - 1 ? 'tone-ok' : 'tone-neutral'">
+      <span class="status" :class="journey.moving ? 'tone-ink' : journey.delivered ? 'tone-ok' : 'tone-neutral'">
         <i class="dot" />{{ caption }}
       </span>
     </figcaption>

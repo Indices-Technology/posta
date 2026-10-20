@@ -48,6 +48,23 @@ export const courierRepository = {
     return count === 1
   },
 
+  /** Approved couriers in a city who have switched "I'm available" on, with how many jobs they have open. */
+  async listAvailable(city: string, now = new Date()) {
+    const couriers = await prisma.courier.findMany({
+      where: {
+        status: 'APPROVED',
+        city: { equals: city.trim(), mode: 'insensitive' },
+        OR: [{ availableUntil: { gt: now } }, { kind: 'COMPANY' }], // companies run their own dispatch
+      },
+      include: { _count: { select: { legs: { where: openJobs } } } },
+    })
+    return couriers.map(({ _count, ...c }) => ({ ...c, openJobs: _count.legs }))
+  },
+
+  setAvailability(id: string, data: { availableUntil: Date | null; lastLat?: number | null; lastLng?: number | null }) {
+    return prisma.courier.update({ where: { id }, data: { ...data, lastSeenAt: new Date() } })
+  },
+
   /** The approved courier in a city with the fewest unfinished jobs, or null. */
   async findLeastBusy(city: string) {
     const couriers = await prisma.courier.findMany({

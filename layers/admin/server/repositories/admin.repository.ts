@@ -1,6 +1,6 @@
 /** Read-only queries across all parcels for staff screens. */
 import { prisma } from '~~/server/utils/db'
-import { MAX_FAILED_ATTEMPTS } from '~~/layers/delivery/server/utils/legTransition'
+import { MAX_FAILED_ATTEMPTS } from '~~/layers/delivery/server/utils/chain'
 
 export const adminRepository = {
   countByStatus() {
@@ -10,19 +10,30 @@ export const adminRepository = {
   /** Legs whose time window has passed without a handover. */
   listLateLegs(now: Date, take = 20) {
     return prisma.leg.findMany({
-      where: { status: { not: 'HANDED_OVER' }, windowEnd: { lt: now } },
+      where: { status: { not: 'HANDED_OVER' }, windowEnd: { lt: now }, carrierName: { not: null } },
       select: { id: true, carrierName: true, windowEnd: true, parcel: { select: { id: true, number: true } } },
       orderBy: { windowEnd: 'asc' },
       take,
     })
   },
 
-  /** Legs locked after too many wrong codes: someone must call the carrier. */
-  listLockedLegs(take = 20) {
-    return prisma.leg.findMany({
-      where: { failedAttempts: { gte: MAX_FAILED_ATTEMPTS }, status: { not: 'HANDED_OVER' } },
-      select: { id: true, carrierName: true, parcel: { select: { id: true, number: true } } },
+  /** Handovers locked after too many wrong codes: someone must call the people involved. */
+  listLockedHandovers(take = 20) {
+    return prisma.handover.findMany({
+      where: { failedAttempts: { gte: MAX_FAILED_ATTEMPTS }, status: { in: ['READY', 'WAITING'] } },
+      select: { id: true, fromParty: true, toParty: true, parcel: { select: { id: true, number: true } } },
       take,
+    })
+  },
+
+  /** Courier jobs nobody has taken yet, on parcels waiting for them (at the sender or a centre). */
+  countWaitingForCourier() {
+    return prisma.leg.count({
+      where: {
+        carrierName: null,
+        handoversIn: { some: { toParty: 'COURIER' } },
+        parcel: { status: { in: ['AWAITING_PICKUP', 'AT_ORIGIN', 'AT_HUB'] } },
+      },
     })
   },
 

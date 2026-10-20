@@ -26,7 +26,19 @@ export const TEMPLATES = {
     text: (p) => `A parcel joined your trip to ${p.to}: ${p.contents}.`,
   },
 
+  'offer.new': {
+    icon: 'bike',
+    text: (p) => `New job near you: ${p.ref}, collect at ${p.from}. Accept within 2 minutes: ${p.link}`,
+    whatsapp: { name: 'posta_job_offer', params: ['carrier', 'ref', 'from', 'link'] },
+  },
+  'offer.taken': { icon: 'check', text: (p) => `${p.carrier} is collecting ${p.ref}. Show them the QR on the parcel page.` },
+
   // To recipients
+  'collection.ready': {
+    icon: 'hubs',
+    text: (p) => `Your parcel is ready at ${p.hub}. Show your code there: ${p.link}`,
+    whatsapp: { name: 'posta_ready_for_collection', params: ['recipient', 'hub', 'link'] },
+  },
   'tracking.sent': {
     icon: 'road',
     text: (p) => `Your parcel from ${p.fromCity} is on its way. Delivery code ${p.code}. Track it: ${p.link}`,
@@ -36,6 +48,8 @@ export const TEMPLATES = {
   // To senders
   'parcel.matched': { icon: 'trips', text: (p) => `${p.ref} is on ${p.driver}'s trip.` },
   'parcel.collected': { icon: 'road', text: (p) => `${p.ref} was collected and is on the road.` },
+  'parcel.picked_up': { icon: 'bike', text: (p) => `${p.carrier} picked up ${p.ref}.` },
+  'parcel.at_origin': { icon: 'hubs', text: (p) => `${p.ref} is at ${p.hub}, waiting for its trip.` },
   'parcel.at_hub': { icon: 'hubs', text: (p) => `${p.ref} reached ${p.hub}.` },
   'parcel.delivered': {
     icon: 'done',

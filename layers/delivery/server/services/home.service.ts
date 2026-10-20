@@ -7,11 +7,12 @@ import { tripRepository } from '../repositories/trip.repository'
 export const homeService = {
   /** Everything the home screen shows: my parcels, my trips, my courier work, and form prefill. */
   async get(user: PostaUser) {
-    const [parcels, trips, cities, couriers] = await Promise.all([
+    const [parcels, trips, cities, couriers, centres] = await Promise.all([
       parcelRepository.listCreatedBy(user.id),
       tripRepository.listActiveFor(user.id),
       hubRepository.listCities(),
       courierRepository.listForUserWithJobs(user.id),
+      hubRepository.listOwnedBy(user.id),
     ])
     const approved = couriers.filter((c) => c.status === 'APPROVED')
     return {
@@ -27,6 +28,8 @@ export const homeService = {
       courier: couriers.length
         ? { approved: approved.length > 0, openJobs: approved.reduce((n, c) => n + c.legs.length, 0) }
         : null,
+      /** Approved centres I run: shown as the Centre dashboard entry. */
+      centres: centres.filter((h) => h.status === "APPROVED").length,
     }
   },
 }

@@ -7,6 +7,8 @@ type Db = Prisma.TransactionClient
 const fullInclude = {
   legs: { orderBy: { seq: 'asc' }, include: { trip: { select: { id: true, departAt: true, arriveBy: true } } } },
   events: { orderBy: { at: 'asc' } },
+  originHub: true,
+  destHub: true,
 } satisfies Prisma.ParcelInclude
 
 export const parcelRepository = {
@@ -36,18 +38,6 @@ export const parcelRepository = {
     return prisma.parcel.findMany({ where: { status: 'NEW' } })
   },
 
-  /** At a centre with no courier yet: waiting for one to be approved or freed up. */
-  listAtHubWithoutCourier(city?: string) {
-    return prisma.parcel.findMany({
-      where: {
-        status: 'AT_HUB',
-        legs: { none: { seq: 2 } },
-        ...(city ? { toCity: { equals: city.trim(), mode: 'insensitive' as const } } : {}),
-      },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-    })
-  },
 
   /** NEW → MATCHED only if still NEW. False means another run got there first. */
   async claimForMatching(id: string, db: Db = prisma) {

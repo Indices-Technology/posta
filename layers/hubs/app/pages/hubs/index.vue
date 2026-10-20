@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useHead({ title: 'Fulfilment centres · Posta' })
+useHead({ title: 'Fulfilment centres' })
 const hubs = useHubs()
 const { data } = await useApiData('hubs', () => hubs.list())
 

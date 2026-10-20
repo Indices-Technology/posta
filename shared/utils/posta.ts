@@ -1,20 +1,36 @@
 // Wording and formatting shared by server and pages, so a status reads the same everywhere.
 
-export type ParcelStatusName = 'NEW' | 'MATCHED' | 'IN_TRANSIT' | 'AT_HUB' | 'OUT_FOR_DELIVERY' | 'DELIVERED'
+export type ParcelStatusName =
+  | 'NEW'
+  | 'MATCHED'
+  | 'AWAITING_DROPOFF'
+  | 'AWAITING_PICKUP'
+  | 'WITH_COURIER'
+  | 'AT_ORIGIN'
+  | 'IN_TRANSIT'
+  | 'AT_HUB'
+  | 'READY_FOR_COLLECTION'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
 export type Tone = 'neutral' | 'ink' | 'ok' | 'alert'
 
 export const PARCEL_STATUS: Record<ParcelStatusName, { label: string; tone: Tone }> = {
   NEW: { label: 'Waiting for a trip', tone: 'neutral' },
   MATCHED: { label: 'Matched', tone: 'ink' },
+  AWAITING_DROPOFF: { label: 'Waiting for drop-off', tone: 'neutral' },
+  AWAITING_PICKUP: { label: 'Waiting for pickup', tone: 'neutral' },
+  WITH_COURIER: { label: 'With the courier', tone: 'ink' },
+  AT_ORIGIN: { label: 'At the centre', tone: 'ink' },
   IN_TRANSIT: { label: 'On the road', tone: 'ink' },
-  AT_HUB: { label: 'At handover point', tone: 'ink' },
+  AT_HUB: { label: 'At the destination centre', tone: 'ink' },
+  READY_FOR_COLLECTION: { label: 'Ready for collection', tone: 'ink' },
   OUT_FOR_DELIVERY: { label: 'Out for delivery', tone: 'ink' },
   DELIVERED: { label: 'Delivered', tone: 'ok' },
 }
 
 export const PARCEL_VIEWS = {
-  waiting: ['NEW'],
-  moving: ['MATCHED', 'IN_TRANSIT', 'AT_HUB', 'OUT_FOR_DELIVERY'],
+  waiting: ['NEW', 'AWAITING_DROPOFF', 'AWAITING_PICKUP'],
+  moving: ['MATCHED', 'WITH_COURIER', 'AT_ORIGIN', 'IN_TRANSIT', 'AT_HUB', 'READY_FOR_COLLECTION', 'OUT_FOR_DELIVERY'],
   delivered: ['DELIVERED'],
 } as const satisfies Record<string, ParcelStatusName[]>
 export type ParcelView = keyof typeof PARCEL_VIEWS
@@ -45,7 +61,15 @@ export const formatCode = (c: string) => `${c.slice(0, 3)} ${c.slice(3)}`
 export function eventText(type: string, data: Record<string, any> = {}, forPublic = false): string | null {
   switch (type) {
     case 'parcel.created':
-      return 'Parcel registered'
+      return forPublic || !data.origin ? 'Parcel registered' : `Booked: ${data.firstMile === 'PICKUP' ? 'courier pickup' : `drop-off at ${data.origin}`}, then ${data.lastMile === 'COLLECT' ? `collect at ${data.dest}` : 'door delivery'}`
+    case 'handover.done':
+      return forPublic ? publicStep(data) : `${data.fromName} handed it to ${data.toName}`
+    case 'courier.assigned':
+      return forPublic ? null : `Courier ${data.courier} took the job`
+    case 'courier.waiting':
+      return forPublic ? null : 'Waiting for a free courier'
+    case 'trip.missed':
+      return forPublic ? null : `${data.driver ?? 'The traveller'} left without it; finding another trip`
     case 'parcel.matched':
       return forPublic ? 'Matched to a trip' : `Matched to ${data.driver ?? 'a driver'}'s trip. Hands over at ${data.hub ?? data.postcode}`
     case 'leg.collected':
@@ -60,6 +84,15 @@ export function eventText(type: string, data: Record<string, any> = {}, forPubli
     default:
       return null
   }
+}
+
+/** Public wording for a handover: places by name, people never. */
+function publicStep(d: Record<string, any>) {
+  if (d.to === 'RECIPIENT') return 'Delivered'
+  if (d.to === 'CENTRE') return `At ${d.toName}`
+  if (d.to === 'TRAVELLER') return 'On the road'
+  if (d.to === 'COURIER') return d.from === 'SENDER' ? 'Picked up by a courier' : 'With a courier'
+  return null
 }
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name

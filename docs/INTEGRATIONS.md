@@ -77,5 +77,7 @@ WhatsApp Manager before turning WhatsApp on:
 | `posta_job_assigned` | carrier, ref, from, to, link |
 | `posta_parcel_on_its_way` | recipient, fromCity, code, link |
 | `posta_parcel_delivered` | ref, recipient |
+| `posta_job_offer` | carrier, ref, from, link |
+| `posta_ready_for_collection` | recipient, hub, link |
 
 Suggested wording is the `text` of each entry in `layers/notifications/server/utils/templates.ts`.

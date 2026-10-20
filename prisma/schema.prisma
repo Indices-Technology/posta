@@ -28,6 +28,10 @@ model HandoverPoint {
   reviewedBy   String?
   reviewedAt   DateTime?
   createdAt    DateTime      @default(now())
+  originOf     Parcel[]      @relation("ParcelOrigin")
+  destinationOf Parcel[]     @relation("ParcelDestination")
+  handoversOut Handover[]    @relation("HandoverFromHub")
+  handoversIn  Handover[]    @relation("HandoverToHub")
 
   @@index([status, city])
 }
@@ -58,7 +62,14 @@ model Courier {
   reviewedBy    String?
   reviewedAt    DateTime?
   createdAt     DateTime      @default(now())
+  /// Taking jobs until this time (the courier's "I'm available" switch). Null or past = off.
+  availableUntil DateTime?
+  /// Last known position while available, for "nearest courier". Never shown exactly to senders.
+  lastLat       Float?
+  lastLng       Float?
+  lastSeenAt    DateTime?
   legs          Leg[]
+  offers        JobOffer[]
 
   @@unique([userId, kind])
   @@index([city, status])
@@ -160,23 +171,51 @@ model Parcel {
   weightKg       Float
   valueKobo      Int
   status         ParcelStatus @default(NEW)
+  /// How it reaches the first centre: the sender drops it off, or a courier collects it.
+  firstMile      FirstMile    @default(DROP_OFF)
+  /// How it reaches the recipient: a courier to the door, or they collect at the centre.
+  lastMile       LastMile     @default(DOOR)
+  originHubId    String?
+  originHub      HandoverPoint? @relation("ParcelOrigin", fields: [originHubId], references: [id])
+  destHubId      String?
+  destHub        HandoverPoint? @relation("ParcelDestination", fields: [destHubId], references: [id])
+  /// The courier the sender chose for pickup, offered the job first.
+  preferredCourierId String?
   createdBy      String
   createdAt      DateTime     @default(now())
   legs           Leg[]
+  handovers      Handover[]
   events         Event[]
+}
+
+enum FirstMile {
+  DROP_OFF
+  PICKUP
+}
+
+enum LastMile {
+  DOOR
+  COLLECT
 }
 
 enum ParcelStatus {
   NEW
+  /// Legacy (before the handover chain): matched to a trip, not yet collected.
   MATCHED
+  AWAITING_DROPOFF
+  AWAITING_PICKUP
+  /// With the courier who collected it from the sender.
+  WITH_COURIER
+  AT_ORIGIN
   IN_TRANSIT
   AT_HUB
+  READY_FOR_COLLECTION
   OUT_FOR_DELIVERY
   DELIVERED
 }
 
-/// One stretch of a parcel's journey, carried by one person.
-/// Leg 1 = the driver's trip, leg 2 = the last-mile courier.
+/// One stretch of a parcel's journey, carried by one carrier (a courier or a traveller).
+/// The custody changes at each end are Handover rows; the leg is who carries in between.
 model Leg {
   id               String    @id @default(uuid())
   parcelId         String
@@ -185,16 +224,16 @@ model Leg {
   kind             LegKind
   tripId           String?
   trip             Trip?     @relation(fields: [tripId], references: [id])
-  carrierName      String
-  carrierPhone     String
+  /// Null until a carrier is assigned (trip matched, or a courier accepted the offer).
+  carrierName      String?
+  carrierPhone     String?
   fromPostcode     String
   toPostcode       String
   windowStart      DateTime
   windowEnd        DateTime
-  /// Held by the person handing the parcel TO the carrier.
-  collectCode      String
-  /// Held by the person receiving the parcel FROM the carrier.
-  handoverCode     String
+  /// Legacy codes from before the handover chain (now on Handover rows).
+  collectCode      String?
+  handoverCode     String?
   /// Secret in the carrier's link, so they need no account.
   linkToken        String    @unique
   /// Wrong codes typed on this leg. Locks at 5 so a 6-digit code can't be guessed.
@@ -202,6 +241,9 @@ model Leg {
   /// Last-mile legs: the courier (person or company) doing it.
   courierId        String?
   courier          Courier?  @relation(fields: [courierId], references: [id])
+  offers           JobOffer[]
+  handoversOut     Handover[] @relation("HandoverFromLeg")
+  handoversIn      Handover[] @relation("HandoverToLeg")
   status           LegStatus @default(ASSIGNED)
   collectedAt      DateTime?
   handedOverAt     DateTime?
@@ -212,8 +254,86 @@ model Leg {
 }
 
 enum LegKind {
+  /// Courier: sender to the origin centre.
+  FIRST_MILE
+  /// Between centres: a traveller (city to city) or a courier (same city).
   LINEHAUL
+  /// Courier: destination centre to the door.
   LASTMILE
+}
+
+/// One change of hands. The person taking the parcel scans the giver's QR (or types its code);
+/// the final recipient has no account, so they show theirs and the courier scans it.
+model Handover {
+  id             String         @id @default(uuid())
+  parcelId       String
+  parcel         Parcel         @relation(fields: [parcelId], references: [id])
+  seq            Int
+  fromParty      Party
+  toParty        Party
+  fromHubId      String?
+  fromHub        HandoverPoint? @relation("HandoverFromHub", fields: [fromHubId], references: [id])
+  toHubId        String?
+  toHub          HandoverPoint? @relation("HandoverToHub", fields: [toHubId], references: [id])
+  fromLegId      String?
+  fromLeg        Leg?           @relation("HandoverFromLeg", fields: [fromLegId], references: [id])
+  toLegId        String?
+  toLeg          Leg?           @relation("HandoverToLeg", fields: [toLegId], references: [id])
+  /// In the QR: /h/<token>. Bearer of nothing on its own: only the right party can confirm.
+  token          String         @unique
+  /// The same handover as 6 digits, for typing when there's no camera.
+  code           String
+  status         HandoverStatus @default(WAITING)
+  /// Wrong codes typed for this handover. Locks at 5.
+  failedAttempts Int            @default(0)
+  doneAt         DateTime?
+  /// Who confirmed: a user id, or "link:<legId>" for a carrier using their job link.
+  doneBy         String?
+  createdAt      DateTime       @default(now())
+
+  @@unique([parcelId, seq])
+  @@index([toHubId, status])
+  @@index([fromHubId, status])
+}
+
+enum Party {
+  SENDER
+  COURIER
+  CENTRE
+  TRAVELLER
+  RECIPIENT
+}
+
+enum HandoverStatus {
+  /// Earlier steps not done yet, or a carrier not assigned yet.
+  WAITING
+  READY
+  DONE
+  CANCELLED
+}
+
+/// A job offered to one courier, who accepts or declines within a couple of minutes.
+model JobOffer {
+  id          String      @id @default(uuid())
+  legId       String
+  leg         Leg         @relation(fields: [legId], references: [id])
+  courierId   String
+  courier     Courier     @relation(fields: [courierId], references: [id])
+  status      OfferStatus @default(OFFERED)
+  expiresAt   DateTime
+  respondedAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([courierId, status])
+  @@index([legId, status])
+}
+
+enum OfferStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
 }
 
 enum LegStatus {

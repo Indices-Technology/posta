@@ -14,6 +14,9 @@ watch(() => useRoute().fullPath, () => (open.value = false))
       </div>
       <nav v-if="open" class="menu">
         <p class="small faint" style="padding: 8px 12px">{{ displayName }}</p>
+        <NuxtLink to="/scan"><AppIcon name="scan" />Scan a code</NuxtLink>
+        <NuxtLink to="/courier"><AppIcon name="bike" />My work</NuxtLink>
+        <NuxtLink to="/centre"><AppIcon name="hubs" />My centre</NuxtLink>
         <NuxtLink to="/join"><AppIcon name="work" />Work with Posta</NuxtLink>
         <NuxtLink v-if="isOps" to="/admin"><AppIcon name="staff" />Staff</NuxtLink>
         <NuxtLink v-if="isOps" to="/hubs"><AppIcon name="hubs" />Fulfilment centres</NuxtLink>

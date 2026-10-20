@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// My work with Posta: courier / company status, open jobs, and centres I registered.
-useHead({ title: 'My work · Posta' })
+// The courier dashboard: the "I'm available" switch, job offers to answer, jobs in progress,
+// and my applications (courier, company, fulfilment centre).
+useHead({ title: 'My work' })
 const courier = useCourier()
 const hubs = useHubs()
-const { data } = await useApiData('my-work', async () => {
-  const [couriers, centres] = await Promise.all([courier.mine(), hubs.mine()])
-  return { couriers, centres }
+const { data, refresh } = await useApiData('my-work', async () => {
+  const [board, couriers, centres] = await Promise.all([courier.dashboard(), courier.mine(), hubs.mine()])
+  return { board, couriers, centres }
 })
+const { busy, error, run } = useSubmit()
 
 const STATUS: Record<string, { label: string; tone: string }> = {
   PENDING: { label: 'Under review', tone: 'tone-neutral' },
@@ -14,13 +16,40 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   REJECTED: { label: 'Not approved', tone: 'tone-neutral' },
   SUSPENDED: { label: 'Paused', tone: 'tone-alert' },
 }
-const jobs = computed(() => data.value?.couriers.flatMap((c) => c.jobs) ?? [])
+
+const person = computed(() => data.value?.board.profiles.find((p) => p.kind === 'INDIVIDUAL' && p.status === 'APPROVED'))
 const nothing = computed(() => !data.value?.couriers.length && !data.value?.centres.length)
+
+// Offers expire in about 2 minutes: count down, and look for new ones while available.
+const now = ref(Date.now())
+const left = (iso: string) => Math.max(0, Math.round((new Date(iso).getTime() - now.value) / 1000))
+let tick: ReturnType<typeof setInterval> | undefined
+let poll: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  tick = setInterval(() => (now.value = Date.now()), 1000)
+  poll = setInterval(() => person.value?.available && refresh(), 10_000)
+})
+onBeforeUnmount(() => {
+  clearInterval(tick)
+  clearInterval(poll)
+})
+
+async function toggle() {
+  if (await run(() => courier.setAvailability(!person.value?.available))) await refresh()
+}
+async function accept(id: string) {
+  const res = await run(() => courier.accept(id))
+  if (res) await navigateTo(`/l/${res.linkToken}`)
+}
+async function decline(id: string) {
+  await run(() => courier.decline(id))
+  if (!error.value) await refresh()
+}
 </script>
 
 <template>
   <div v-if="data">
-    <NuxtLink to="/" class="iconbtn" aria-label="Home" style="margin-left: -12px"><AppIcon name="back" /></NuxtLink>
+    <BackButton style="margin-left: -12px" />
     <h1 style="margin: 8px 0 20px">My work</h1>
 
     <section v-if="nothing" class="panel" style="text-align: center">
@@ -29,10 +58,38 @@ const nothing = computed(() => !data.value?.couriers.length && !data.value?.cent
       <NuxtLink to="/join" class="btn block" style="margin-top: 20px">See how</NuxtLink>
     </section>
 
-    <section v-if="jobs.length" style="margin-bottom: 28px">
+    <!-- The switch -->
+    <button v-if="person" type="button" class="switch" :class="{ on: person.available }" :disabled="busy" @click="toggle">
+      <AppIcon name="bike" />
+      <span>
+        <b>{{ person.available ? "I'm available" : "I'm offline" }}</b>
+        <span class="small">{{ person.available ? `Taking jobs in ${person.city}. Tap to stop.` : 'Tap to start taking jobs' }}</span>
+      </span>
+      <i class="knob" aria-hidden="true" />
+    </button>
+    <p v-if="error" class="error-text" role="alert" style="margin-top: 10px">{{ error }}</p>
+
+    <section v-if="data.board.offers.length" style="margin-top: 24px">
+      <div class="label"><h2>New jobs</h2></div>
+      <div v-for="o in data.board.offers" :key="o.id" class="panel stack" style="margin-bottom: 12px">
+        <div class="row">
+          <b>{{ o.ref }} · {{ o.contents }}</b>
+          <span class="status tone-alert"><AppIcon name="timer" />{{ left(o.expiresAt) }}s</span>
+        </div>
+        <p class="small soft">
+          {{ o.kind === 'FIRST_MILE' ? 'Pick up' : 'Collect' }} at <span class="mono">{{ o.from }}</span>, take to <span class="mono">{{ o.to }}</span> · {{ o.weightKg }} kg
+        </p>
+        <div class="row">
+          <button class="btn quiet small" :disabled="busy" @click="decline(o.id)">Pass</button>
+          <button class="btn" style="flex: 1" :disabled="busy || !left(o.expiresAt)" @click="accept(o.id)"><AppIcon name="check" />Accept</button>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="data.board.jobs.length" style="margin-top: 24px">
       <div class="label"><h2>Jobs</h2></div>
       <ul class="list">
-        <li v-for="j in jobs" :key="j.legId" class="item">
+        <li v-for="j in data.board.jobs" :key="j.legId" class="item">
           <span class="item-icon"><AppIcon :name="j.status === 'COLLECTED' ? 'road' : 'parcel'" /></span>
           <span>
             <b>{{ j.ref }} · {{ j.contents }}</b>
@@ -43,7 +100,7 @@ const nothing = computed(() => !data.value?.couriers.length && !data.value?.cent
       </ul>
     </section>
 
-    <section v-if="data.couriers.length || data.centres.length">
+    <section v-if="data.couriers.length || data.centres.length" style="margin-top: 24px">
       <div class="label"><h2>Applications</h2></div>
       <ul class="list">
         <li v-for="c in data.couriers" :key="c.id" class="item">
@@ -54,13 +111,15 @@ const nothing = computed(() => !data.value?.couriers.length && !data.value?.cent
           </span>
           <span class="status" :class="STATUS[c.status]?.tone"><i class="dot" />{{ STATUS[c.status]?.label }}</span>
         </li>
-        <li v-for="h in data.centres" :key="h.id" class="item">
-          <span class="item-icon"><AppIcon name="hubs" /></span>
-          <span>
-            <b>{{ h.name }}</b>
-            <span class="sub">Fulfilment centre · {{ h.city }}</span>
-          </span>
-          <span class="status" :class="STATUS[h.status]?.tone"><i class="dot" />{{ STATUS[h.status]?.label }}</span>
+        <li v-for="h in data.centres" :key="h.id">
+          <NuxtLink :to="h.status === 'APPROVED' ? '/centre' : '/courier'" class="item">
+            <span class="item-icon"><AppIcon name="hubs" /></span>
+            <span>
+              <b>{{ h.name }}</b>
+              <span class="sub">Fulfilment centre · {{ h.city }}</span>
+            </span>
+            <span class="status" :class="STATUS[h.status]?.tone"><i class="dot" />{{ STATUS[h.status]?.label }}</span>
+          </NuxtLink>
         </li>
       </ul>
     </section>
@@ -79,3 +138,19 @@ const nothing = computed(() => !data.value?.couriers.length && !data.value?.cent
     </details>
   </div>
 </template>
+
+<style scoped>
+.switch {
+  display: grid; grid-template-columns: 44px 1fr 56px; align-items: center; gap: 14px; width: 100%;
+  padding: 18px; border-radius: 16px; border: 1.5px solid var(--line-strong); background: var(--surface); cursor: pointer; text-align: left;
+}
+.switch > .iconify { font-size: 36px; color: var(--ink-faint); }
+.switch b { display: block; font: 750 19px var(--font-display); }
+.switch .small { color: var(--ink-soft); }
+.knob { position: relative; width: 56px; height: 32px; border-radius: 999px; background: var(--line-strong); transition: background 0.2s; }
+.knob::after { content: ''; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.switch.on { border-color: var(--ok); }
+.switch.on > .iconify { color: var(--ok); }
+.switch.on .knob { background: var(--ok); }
+.switch.on .knob::after { transform: translateX(24px); }
+</style>

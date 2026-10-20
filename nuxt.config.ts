@@ -36,17 +36,24 @@ export default defineNuxtConfig({
     marketxApiUrl: 'https://marketx.africa', // NUXT_MARKETX_API_URL
     // Secret key from the postcode.gov.ng dashboard (Settings → API Keys). Server only.
     postcodeApiKey: '', // NUXT_POSTCODE_API_KEY
+    // Canonical and link-preview addresses. Same env the server already uses for WhatsApp links.
+    public: { siteUrl: 'http://localhost:3100' }, // NUXT_PUBLIC_SITE_URL
   },
 
   app: {
     head: {
-      title: 'Posta',
       htmlAttrs: { lang: 'en' },
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'theme-color', content: '#faf8f5' },
+        { name: 'theme-color', content: '#faf8f5', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#141210', media: '(prefers-color-scheme: dark)' },
+        { name: 'apple-mobile-web-app-title', content: 'Posta' },
       ],
       link: [
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        { rel: 'icon', href: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {

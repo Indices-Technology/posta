@@ -39,7 +39,8 @@ async function next() {
     if (at >= 0) i.value = at
   }
 }
-const back = () => (i.value ? i.value-- : navigateTo('/join'))
+const goBack = useBack()
+const back = () => (i.value ? i.value-- : goBack('/join'))
 </script>
 
 <template>

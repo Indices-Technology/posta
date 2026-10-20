@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Register a shop as a fulfilment centre. Staff approve it before it receives parcels.
 definePageMeta({ layout: false })
-useHead({ title: 'Fulfilment centre · Posta' })
+useHead({ title: 'Fulfilment centre' })
 
 const delivery = useDelivery()
 const hubs = useHubs()
@@ -50,7 +50,8 @@ async function next() {
     if (at >= 0) i.value = at
   }
 }
-const back = () => (i.value ? i.value-- : navigateTo('/join'))
+const goBack = useBack()
+const back = () => (i.value ? i.value-- : goBack('/join'))
 </script>
 
 <template>

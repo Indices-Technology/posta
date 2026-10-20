@@ -4,7 +4,7 @@ useHead({ title: 'Work with Posta' })
 
 <template>
   <div>
-    <NuxtLink to="/" class="iconbtn" aria-label="Home" style="margin-left: -12px"><AppIcon name="back" /></NuxtLink>
+    <BackButton style="margin-left: -12px" />
     <h1 style="margin: 8px 0 20px">Work with Posta</h1>
 
     <ul class="list">

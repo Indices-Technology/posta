@@ -1,5 +1,17 @@
 import { BaseApiClient } from '~~/layers/core/app/services/base.api'
-import type { Home, Job, JobAction, NewParcel, NewTrip, ParcelPage, Tracking, TripPage } from '../types/delivery.types'
+import type {
+  Confirmed,
+  HandoverView,
+  Home,
+  Job,
+  NearCentre,
+  NearCourier,
+  NewParcel,
+  NewTrip,
+  ParcelPage,
+  Tracking,
+  TripPage,
+} from '../types/delivery.types'
 
 export class DeliveryApiClient extends BaseApiClient {
   getHome() {
@@ -20,14 +32,28 @@ export class DeliveryApiClient extends BaseApiClient {
     return this.request<TripPage>(`/api/delivery/trips/${id}`)
   }
 
-  // Public: carrier job links and recipient tracking links.
+  // Choices while booking.
+  centresNear(lat: number, lng: number) {
+    return this.request<NearCentre[]>('/api/hubs/near', { query: { lat, lng } })
+  }
+  couriersNear(lat: number, lng: number) {
+    return this.request<NearCourier[]>('/api/couriers/near', { query: { lat, lng } })
+  }
+
+  // Public: carrier job links, recipient tracking links, and scans.
   getJob(token: string) {
     return this.request<Job>(`/api/delivery/jobs/${token}`)
   }
-  actOnJob(token: string, body: JobAction) {
-    return this.request<Job>(`/api/delivery/jobs/${token}`, { method: 'POST', body })
-  }
   getTracking(token: string) {
     return this.request<Tracking>(`/api/delivery/track/${token}`)
+  }
+  getHandover(token: string, job?: string | null) {
+    return this.request<HandoverView>(`/api/handovers/${token}`, { query: job ? { job } : undefined })
+  }
+  confirmHandover(token: string, job?: string | null) {
+    return this.request<Confirmed>(`/api/handovers/${token}/confirm`, { method: 'POST', body: { job: job ?? null } })
+  }
+  confirmCode(code: string, job?: string | null) {
+    return this.request<Confirmed>('/api/handovers/code', { method: 'POST', body: { code, job: job ?? null } })
   }
 }

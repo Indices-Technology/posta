@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
-useHead({ title: "I'm travelling · Posta" })
+useHead({ title: "I'm travelling" })
 
 const delivery = useDelivery()
 const { data } = await useApiData('home', () => delivery.loadHome())
@@ -60,7 +60,8 @@ async function next() {
   const back = steps.findIndex((s) => s.fields.includes(field.value))
   if (back >= 0) i.value = back
 }
-const back = () => (i.value ? i.value-- : navigateTo('/'))
+const goBack = useBack()
+const back = () => (i.value ? i.value-- : goBack('/'))
 </script>
 
 <template>
