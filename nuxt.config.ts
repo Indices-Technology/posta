@@ -12,6 +12,7 @@ export default defineNuxtConfig({
     './layers/couriers',
     './layers/hubs',
     './layers/admin',
+    './layers/shipping',
   ],
 
   modules: ['@pinia/nuxt', '@nuxt/icon'],

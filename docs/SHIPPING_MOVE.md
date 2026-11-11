@@ -1,6 +1,17 @@
 # Moving MarketX shipping into Posta
 
-Status: proposal, nothing moved. Written 2026-10-17.
+Status: quotes built (2026-11-11), booking and tracking still in MarketX. Written 2026-10-17.
+
+Done so far:
+- Step 2 for quoting: GIG, seller delivery and zone/pricing code copied into `layers/shipping`;
+  `POST /api/v1/quotes` with API keys, ranking (price, time, insurance), Posta network as a carrier
+  (off until `NUXT_NETWORK_QUOTES` and a real rate card). Contract in INTEGRATIONS.md §5.
+- MarketX side: `SHIPPING_VIA_POSTA=off|shadow|on` (`layers/shipping/server/utils/postaClient.ts`),
+  with MarketX's own carriers as the fallback. MarketX still signs its own quote tokens: the price
+  reaches it server to server, so the Posta-signed token below is only needed for booking.
+- Verified locally against live GIG: MarketX checkout → Posta → GIG, same price both ways; with Posta
+  stopped, checkout falls back with one warning.
+- Until MarketX books through Posta, it asks only for carriers it can book (`self`, `gig`).
 
 ## The idea
 

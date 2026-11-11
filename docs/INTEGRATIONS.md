@@ -81,3 +81,48 @@ WhatsApp Manager before turning WhatsApp on:
 | `posta_ready_for_collection` | recipient, hub, link |
 
 Suggested wording is the `text` of each entry in `layers/notifications/server/utils/templates.ts`.
+
+## 5. Delivery quotes for platforms (MarketX first)
+
+`POST /api/v1/quotes`, server to server. Send your key in `x-posta-key` (Posta stores only its
+hash, in `NUXT_API_KEYS`; one key per client, removed to revoke). 600 requests a minute per client.
+
+```jsonc
+{
+  "origin":      { "city": "Aba", "state": "Abia", "country": "NG", "lat": 5.1, "lng": 7.36 },
+  "destination": { "city": "Ikeja", "state": "Lagos" },
+  "parcel": { "weightKg": 1.5 },
+  "declaredValueMinor": 2500000,   // kobo; 0 = uninsured
+  "subtotalMinor": 2500000,        // for the seller's free-delivery threshold
+  "mode": "door",                  // optional: door | collect. Omit for both
+  "carriers": ["self", "gig"],     // optional: which carriers you can use. Omit for all
+  "sellerShipping": { "selfEnabled": true, "flatRateMinor": 300000, "pickupEnabled": true },
+  "strategy": "best-value"         // best-value | cheapest | fastest | safest
+}
+```
+
+Carriers: `self` (the seller's own delivery and pickup, priced from `sellerShipping`), `gig` (live
+GIG price plus Posta's markup), `posta` (Posta's network; only when `NUXT_NETWORK_QUOTES=true`).
+Each carrier gets 7.5 s; one that is slower drops out rather than holding up the rest.
+
+Response, best first:
+
+```jsonc
+{ "success": true, "data": { "strategy": "best-value", "quotes": [{
+  "id": "gig-standard", "carrier": { "id": "gig", "name": "GIG Logistics" },
+  "service": "standard", "delivery": "door", "rateRef": null,
+  "priceMinor": 1147241,           // charged online, insurance included
+  "insuranceMinor": 25000,         // part of priceMinor, passed on at cost
+  "payOnDelivery": false, "payOnDeliveryMinor": 0,   // cash to the rider, never charged online
+  "currency": "NGN",
+  "eta": { "text": "3–4 working days", "minHours": 72, "maxHours": 96 },
+  "insurance": { "covered": true, "coverMinor": 2500000, "claimsWindowHours": 24 },
+  "score": 0.6, "badges": ["fastest", "insured"]
+}]}}
+```
+
+Ranking (`layers/shipping/server/utils/rank.ts`): best-value scores price 60 %, time 30 %,
+insurance 10 %, using the full cost to the buyer (cash on arrival included). Badges `cheapest`,
+`fastest` only appear when there is more than one option.
+
+Quotes only for now. Booking, tracking and delivery events follow (SHIPPING_MOVE.md steps 5 to 7).
