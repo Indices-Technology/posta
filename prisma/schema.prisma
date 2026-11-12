@@ -94,6 +94,8 @@ model Notification {
   toPhone       String?
   /// WEBHOOK: the courier company whose system receives it.
   courierId     String?
+  /// WEBHOOK: or the platform client (name in NUXT_API_KEYS) whose system receives it, e.g. marketx.
+  clientId      String?
   parcelId      String?
   status        NotificationStatus  @default(PENDING)
   attempts      Int                 @default(0)
@@ -352,4 +354,39 @@ model Event {
   at       DateTime @default(now())
 
   @@index([parcelId, at])
+}
+
+/// A delivery a platform client (MarketX first) booked through /api/v1/shipments.
+/// The only thing Posta keeps from a client: quotes and address lookups are never stored.
+model Shipment {
+  id                 String   @id @default(uuid())
+  /// PST-7K3Q9X. Given to the client, safe to show people.
+  code               String   @unique
+  /// Which API client booked it (its name in NUXT_API_KEYS).
+  client             String
+  /// The client's own id for it (MarketX: the order id). A repeated booking returns the same shipment.
+  clientRef          String
+  carrierId          String
+  /// PICKUP: the carrier collects from the sender. DROPOFF: the sender takes it to a carrier centre.
+  mode               String
+  waybill            String?
+  /// GIG drop-off: the code quoted at the counter, before a waybill exists.
+  tempCode           String?
+  dropoffCentre      Json?
+  labelUrl           String?
+  /// Carrier status: UNKNOWN, PRE_TRANSIT, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED, FAILURE.
+  status             String   @default("PRE_TRANSIT")
+  statusAt           DateTime @default(now())
+  /// Names, phones and addresses: needed by the rider and for claims.
+  origin             Json
+  destination        Json
+  weightKg           Float
+  declaredValueMinor Int
+  /// ESCROW_POD (prepaid) or CARRIER_COD (cash collected by the carrier).
+  settlementMode     String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([client, clientRef])
+  @@index([status])
 }

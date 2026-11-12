@@ -20,6 +20,8 @@ export interface PlaceResult {
   /** Postcodes only: the (partial) code, and whether it is a full building postcode. */
   code?: string
   complete?: boolean
+  /** Places only: OpenStreetMap knows this house number, not just the street. */
+  exact?: boolean
 }
 
 // ponytail: per-process memory cache for a day; searches repeat a lot (same markets, same streets).
@@ -60,7 +62,7 @@ async function places(q: string, near?: { lat: number; lng: number }): Promise<P
     .map((f) => {
       const p = f.properties
       const where = [p.street, p.district, p.city ?? p.county, p.state].filter((x, i, a) => x && x !== p.name && a.indexOf(x) === i)
-      return { kind: 'place' as const, label: p.name ?? p.street ?? q, detail: where.join(', ') || null, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }
+      return { kind: 'place' as const, label: p.name ?? p.street ?? q, detail: where.join(', ') || null, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], exact: !!p.housenumber }
     })
 }
 

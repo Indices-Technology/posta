@@ -15,6 +15,9 @@ export interface Template {
 }
 
 export const TEMPLATES = {
+  // To platform clients (webhook only): a booked shipment changed status. data = shipmentService.eventOf
+  'shipment.updated': { icon: 'parcel', text: (p) => `Shipment ${p.code} is now ${p.status}` },
+
   // To carriers
   'job.assigned': {
     icon: 'trips',

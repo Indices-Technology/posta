@@ -7,4 +7,9 @@ export default defineNuxtConfig({
     // Offer Posta's own network in quotes. Off until the rate card in carriers/posta.ts is real. NUXT_NETWORK_QUOTES
     networkQuotes: false,
   },
+  nitro: {
+    experimental: { tasks: true },
+    // Read GIG scans for booked shipments (server/tasks/shipping/track.ts).
+    scheduledTasks: { '*/15 * * * *': ['shipping:track'] },
+  },
 })

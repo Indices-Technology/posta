@@ -126,3 +126,52 @@ insurance 10 %, using the full cost to the buyer (cash on arrival included). Bad
 `fastest` only appear when there is more than one option.
 
 Quotes only for now. Booking, tracking and delivery events follow (SHIPPING_MOVE.md steps 5 to 7).
+
+## 6. Address to national postcode (MarketX first)
+
+`POST /api/v1/addresses/resolve`, same `x-posta-key` as §5. Posta stores nothing from it.
+
+NIPOST cannot read a typed address, only a map point, so everything becomes a point first:
+postcode (checked with NIPOST) · GPS `lat`/`lng` · `mapLink` (Google/Apple links; `maps.app.goo.gl`
+short links are expanded once, no other host is fetched) · typed `address` + `city` + `state`
+(OpenStreetMap search). Then NIPOST gives the building nearest the point (within 250 m).
+
+```json
+{ "address": "12 Herbert Macaulay Way", "city": "Yaba", "state": "Lagos", "lat": 6.5095, "lng": 3.3711 }
+→ { "status": "found", "source": "gps", "postcode": "LA-02-A01-YB-07", "lat": 6.5095, "lng": 3.3711,
+    "distanceM": 12, "place": "Yaba, Lagos" }
+```
+
+`status`: **found** (precise point, NIPOST sure: save it) · **check** (a typed street or an unsure
+match: ask "is this your building?") · **none** (keep the typed address; `lat`/`lng` may still be set).
+A typed street is never `found`: its nearest building is a neighbour's.
+
+Needs a **live** NIPOST key (`nipost_live_`); test keys only know 5 sandbox buildings in the FCT.
+
+## 7. Shipments for platforms (MarketX first)
+
+Same `x-posta-key` as §5. The shipment is the one thing Posta keeps from a client.
+
+- `POST /api/v1/shipments`: book a paid order. `clientRef` = the client's order id; booking twice with
+  it returns the same shipment (`alreadyBooked: true`), never a second parcel. `mode: pickup` returns a
+  waybill; `mode: dropoff` returns a GIG `tempCode` and `dropoffCentre`, and the waybill comes later.
+- `GET /api/v1/shipments/:code`: current status. Another client's code answers 404.
+- `POST /api/v1/shipments/:code/waybill {waybill}`: a drop-off was handed in; tracking starts.
+- `POST /api/v1/shipments/:code/simulate {status}`: staging only (`POSTA_ALLOW_SIMULATE=true`).
+
+```json
+POST /api/v1/shipments
+{ "clientRef": "233", "carrierId": "gig", "mode": "pickup",
+  "origin":      { "name": "Star Collections", "street1": "…", "city": "Umuahia", "state": "Abia", "phone": "+234…" },
+  "destination": { "name": "Ada Obi", "street1": "…", "city": "Yaba", "state": "Lagos", "phone": "+234…", "zip": "LA-02-A01-YB-07" },
+  "parcel": { "weightKg": 0.5 }, "declaredValueMinor": 2500000, "settlementMode": "ESCROW_POD" }
+→ { "code": "PST-7K3Q9X", "clientRef": "233", "carrierId": "gig", "mode": "pickup", "waybill": "1234567",
+    "tempCode": null, "dropoffCentre": null, "labelUrl": null, "status": "PRE_TRANSIT", "alreadyBooked": false }
+```
+
+**Status webhooks.** Posta reads GIG every 15 minutes. Each forward move (PRE_TRANSIT → IN_TRANSIT →
+OUT_FOR_DELIVERY → DELIVERED, or RETURNED / FAILURE) is posted to the client's URL in
+`NUXT_CLIENT_WEBHOOKS`, signed like §1 (`x-posta-signature`), body
+`{ id, event: "shipment.updated", createdAt, data: <the shipment as above> }`. Retried after 1, 5, 15
+and 60 minutes. A status never goes backwards, so a receiver can apply repeats safely. Posta reports;
+the client decides about money (MarketX releases escrow on DELIVERED).

@@ -36,3 +36,16 @@ export async function postWebhook(url: string, secret: string, payload: unknown)
   })
   if (res.status < 200 || res.status >= 300) throw new Error(`Webhook ${res.status}`)
 }
+
+/**
+ * A platform client's webhook, from NUXT_CLIENT_WEBHOOKS (read from the environment so tasks
+ * and scripts see it too):  {"marketx":{"url":"https://…/api/posta/webhook","secret":"whsec_…"}}
+ */
+export function clientWebhook(client: string): { url: string; secret: string } | null {
+  try {
+    const hook = JSON.parse(process.env.NUXT_CLIENT_WEBHOOKS || '{}')[client]
+    return hook?.url && hook?.secret ? hook : null
+  } catch {
+    return null
+  }
+}

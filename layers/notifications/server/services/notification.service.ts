@@ -14,7 +14,7 @@ import { notificationRepository } from '../repositories/notification.repository'
 import { TEMPLATES, renderText, type Template, type TemplateKey } from '../utils/templates'
 import { nextAttemptAt } from '../utils/retry'
 import { sendWhatsappTemplate, whatsappConfigured } from '../utils/channels/whatsapp'
-import { postWebhook } from '../utils/channels/webhook'
+import { clientWebhook, postWebhook } from '../utils/channels/webhook'
 
 type Params = Record<string, unknown>
 type Channel = 'IN_APP' | 'WHATSAPP' | 'WEBHOOK'
@@ -27,6 +27,8 @@ export interface Outgoing {
   forStaff?: boolean
   toPhone?: string
   courierId?: string
+  /** A platform client's system (e.g. marketx), instead of a courier company. */
+  clientId?: string
   parcelId?: string
 }
 
@@ -36,6 +38,7 @@ export const to = {
   staff: (template: TemplateKey, params: Params, parcelId?: string): Outgoing => ({ channel: 'IN_APP', forStaff: true, template, params, parcelId }),
   whatsapp: (phone: string, template: TemplateKey, params: Params, parcelId?: string): Outgoing => ({ channel: 'WHATSAPP', toPhone: phone, template, params, parcelId }),
   company: (courierId: string, template: TemplateKey, params: Params, parcelId?: string): Outgoing => ({ channel: 'WEBHOOK', courierId, template, params, parcelId }),
+  client: (clientId: string, template: TemplateKey, params: Params): Outgoing => ({ channel: 'WEBHOOK', clientId, template, params }),
 }
 
 type Row = NonNullable<Awaited<ReturnType<typeof notificationRepository.findById>>>
@@ -56,9 +59,16 @@ async function deliverOnChannel(n: Row): Promise<'SENT' | 'SKIPPED'> {
     return 'SENT'
   }
 
+  const payload = { id: n.id, event: n.template, createdAt: n.createdAt, data: params }
+  if (n.clientId) {
+    const hook = clientWebhook(n.clientId)
+    if (!hook) return 'SKIPPED'
+    await postWebhook(hook.url, hook.secret, payload)
+    return 'SENT'
+  }
   const courier = n.courierId ? await courierRepository.findById(n.courierId) : null
   if (!courier?.webhookUrl || !courier.webhookSecret) return 'SKIPPED'
-  await postWebhook(courier.webhookUrl, courier.webhookSecret, { id: n.id, event: n.template, createdAt: n.createdAt, data: params })
+  await postWebhook(courier.webhookUrl, courier.webhookSecret, payload)
   return 'SENT'
 }
 

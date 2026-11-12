@@ -1,6 +1,7 @@
 # Moving MarketX shipping into Posta
 
-Status: quotes built (2026-11-11), booking and tracking still in MarketX. Written 2026-10-17.
+Status: quotes built (2026-11-11); booking, tracking and status webhooks built (2026-11-12), behind
+MarketX POSTA_BOOKING=off until proven on staging. Written 2026-10-17.
 
 Done so far:
 - Step 2 for quoting: GIG, seller delivery and zone/pricing code copied into `layers/shipping`;
@@ -11,7 +12,11 @@ Done so far:
   reaches it server to server, so the Posta-signed token below is only needed for booking.
 - Verified locally against live GIG: MarketX checkout → Posta → GIG, same price both ways; with Posta
   stopped, checkout falls back with one warning.
-- Until MarketX books through Posta, it asks only for carriers it can book (`self`, `gig`).
+- Step 5 built (2026-11-12): `/api/v1/shipments` (pickup and drop-off, idempotent per order), GIG
+  tracking every 15 min, signed `shipment.updated` webhooks through the notifications outbox
+  (INTEGRATIONS.md §7). MarketX: `POSTA_BOOKING=on` books through Posta and stores `Orders.postaCode`;
+  `/api/posta/webhook` feeds `applyCarrierStatus`; its poller asks Posta for those orders as a backstop.
+- Not yet: proving it on staging (step 5's last line), step 6 (orders already on the road), step 7.
 
 ## The idea
 

@@ -1,17 +1,19 @@
 import { z } from 'zod'
 
-const address = z.object({
+export const address = z.object({
   name: z.string().max(120).default(''),
   street1: z.string().max(200).default(''),
   city: z.string().max(80).default(''),
   state: z.string({ required_error: 'state is required' }).trim().min(2, 'state is required').max(80),
   country: z.string().length(2).toUpperCase().default('NG'),
   phone: z.string().max(30).optional(),
+  /** National postcode (FC-01-A01-KP-27), when the client has one. */
+  zip: z.string().max(20).optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
 })
 
-const kobo = z.number().int().min(0)
+export const kobo = z.number().int().min(0)
 
 /** The seller's own delivery terms, resolved by the client (Posta never sees the seller). */
 const sellerShipping = z.object({
